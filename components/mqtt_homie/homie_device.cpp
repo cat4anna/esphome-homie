@@ -106,11 +106,6 @@ void HomieDevice::update() {
       next(homie::device_state::ready);
     }
 
-    // auto component_status = app_state & COMPONENT_STATE_MASK;
-    // if(component_status & COMPONENT_STATE_FAILED) {
-    //   next(homie::device_state::alert);
-    // }
-
     goto_state(new_device_state);
   }
 }

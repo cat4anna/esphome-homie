@@ -62,6 +62,7 @@ class HomieSensorProperty : public HomiePropertyBase {
   std::string get_id() const override { return "value"; }
   std::string get_name() const override { return "Value"; }
   bool is_settable() const override { return false; }
+  bool is_retained() const override { return false; }
   homie::datatype get_datatype() const override { return homie::datatype::number; }
 
   std::string get_unit() const { return target->get_unit_of_measurement(); }
@@ -89,6 +90,7 @@ class HomieSwitchProperty : public HomiePropertyBase {
   std::string get_id() const override { return "state"; }
   std::string get_name() const override { return "State"; }
   bool is_settable() const override { return true; }
+  bool is_retained() const override { return false; }
   homie::datatype get_datatype() const override { return homie::datatype::boolean; }
 
   std::map<std::string, std::string> get_attributes() const override {

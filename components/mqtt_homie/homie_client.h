@@ -30,7 +30,7 @@ class HomieClient : public Component {
  public:
   HomieClient(mqtt_client::MQTTClientComponent *client);
 
-  void start_homie(HomieDevice* device, std::string prefix);
+  void start_homie(HomieDevice* device, std::string prefix, int qos, bool retained);
 
   void set_update_interval(uint32_t) { /* nothing */ }
 

@@ -19,6 +19,8 @@ AUTO_LOAD = ["mqtt_client"]
 DEPENDENCIES = ["wifi"]
 
 CONF_HOMIE_PREFIX="prefix"
+CONF_HOMIE_QOS="qos"
+CONF_HOMIE_RETAINED="retained"
 
 mqtt_homie_ns = cg.esphome_ns.namespace("mqtt_homie")
 HomieClient = mqtt_homie_ns.class_("HomieClient", cg.Component)
@@ -31,8 +33,11 @@ CONFIG_SCHEMA = cv.All(
             cv.GenerateID(HOMIE_DEVICE): cv.declare_id(HomieDevice),
             cv.GenerateID(MQTT_CLIENT): cv.use_id(MQTTClientComponent),
             cv.Optional(CONF_HOMIE_PREFIX, default="homie/"): cv.string,
+
+            cv.Optional(CONF_HOMIE_QOS, default="1"): cv.int_range(0,2),
+            cv.Optional(CONF_HOMIE_RETAINED, default="true"): cv.boolean,
         }
-    ).extend(cv.COMPONENT_SCHEMA).extend(cv.polling_component_schema("1s")),
+    ).extend(cv.COMPONENT_SCHEMA).extend(cv.polling_component_schema("10s")),
     cv.only_on([PLATFORM_ESP32, PLATFORM_ESP8266, PLATFORM_BK72XX, PLATFORM_RTL87XX]),
 )
 
@@ -48,7 +53,11 @@ async def to_code(config):
     homie_device = cg.new_Pvariable(config[HOMIE_DEVICE])
     await cg.register_component(homie_device, config)
 
-    cg.add(homie_client.start_homie(homie_device, config[CONF_HOMIE_PREFIX]))
+    cg.add(homie_client.start_homie(homie_device,
+                                    config[CONF_HOMIE_PREFIX],
+                                    config[CONF_HOMIE_QOS],
+                                    config[CONF_HOMIE_RETAINED],
+                                    ))
 
 class HomieController(controler.BaseControler):
     CONF_HOMIE_ID = "homie_id"

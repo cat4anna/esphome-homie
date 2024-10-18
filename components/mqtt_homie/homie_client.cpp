@@ -73,14 +73,14 @@ HomieClient::HomieClient(mqtt_client::MQTTClientComponent *client) {
   mqtt_proxy = std::make_unique<MqttProxy>(client);
 }
 
-void HomieClient::start_homie(HomieDevice* device, std::string prefix) {
+void HomieClient::start_homie(HomieDevice* device, std::string prefix, int qos, bool retained) {
   if (homie_client)
     return;
 
   if(!prefix.empty() && prefix.back() != '/')
     prefix += "/";
 
-  homie_client = std::make_unique<homie::client>(*mqtt_proxy, device, prefix);
+  homie_client = std::make_unique<homie::client>(*mqtt_proxy, device, prefix, qos, retained);
   device->set_client(homie_client.get());
 }
 
