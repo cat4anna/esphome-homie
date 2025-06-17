@@ -1,7 +1,7 @@
 #pragma once
 
 #include "esphome/core/defines.h"
-
+#include "esphome/core/controller.h"
 #include "esphome/core/component.h"
 #include "esphome/core/entity_base.h"
 #include "esphome/core/automation.h"
@@ -9,26 +9,25 @@
 
 #include <vector>
 #include <memory>
+#include <map>
+
 
 #include <stdexcept>
 #include "homie-cpp-merged.h"
 
 #include "homie_node.h"
-#include "esphome/components/sensor/sensor.h"
-#include "esphome/components/switch/switch.h"
 
 namespace esphome {
 namespace mqtt_homie {
 
 class Proxy;
 class HomieDevice;
-class HomiePropertyBase;
 
-template<class PropertyClass> class HomieNodeSimpleProperty : public HomieNodeBase {
+template<class PropertyClass> class HomieNodeSingleProperty : public HomieNodeBase {
  public:
   static constexpr auto TAG = "homie:simple_node";
 
-  HomieNodeSimpleProperty(typename PropertyClass::TargetType *target) : property(target) {
+  HomieNodeSingleProperty(typename PropertyClass::TargetType *target) : property(target) {
     target->add_on_state_callback([this](auto) { notify_property_changed(&property); });
   }
 
@@ -44,7 +43,6 @@ template<class PropertyClass> class HomieNodeSimpleProperty : public HomieNodeBa
     return nullptr;
   }
 
-
  protected:
   const esphome::EntityBase *GetEntityBase() const override { return property.target; }
   const esphome::EntityBase_DeviceClass *GetEntityBaseDeviceClass() const override { return property.target; }
@@ -52,6 +50,7 @@ template<class PropertyClass> class HomieNodeSimpleProperty : public HomieNodeBa
   PropertyClass property;
 };
 
+#ifdef USE_SENSOR
 class HomieSensorProperty : public HomiePropertyBase {
  public:
   using TargetType = sensor::Sensor;
@@ -61,8 +60,6 @@ class HomieSensorProperty : public HomiePropertyBase {
 
   std::string get_id() const override { return "value"; }
   std::string get_name() const override { return "Value"; }
-  bool is_settable() const override { return false; }
-  bool is_retained() const override { return false; }
   homie::datatype get_datatype() const override { return homie::datatype::number; }
 
   std::string get_unit() const { return target->get_unit_of_measurement(); }
@@ -79,7 +76,10 @@ class HomieSensorProperty : public HomiePropertyBase {
     };
   }
 };
+using HomieNodeSensor = HomieNodeSingleProperty<HomieSensorProperty>;
+#endif
 
+#ifdef USE_SWITCH
 class HomieSwitchProperty : public HomiePropertyBase {
  public:
   using TargetType = switch_::Switch;
@@ -90,7 +90,6 @@ class HomieSwitchProperty : public HomiePropertyBase {
   std::string get_id() const override { return "state"; }
   std::string get_name() const override { return "State"; }
   bool is_settable() const override { return true; }
-  bool is_retained() const override { return false; }
   homie::datatype get_datatype() const override { return homie::datatype::boolean; }
 
   std::map<std::string, std::string> get_attributes() const override {
@@ -118,9 +117,27 @@ class HomieSwitchProperty : public HomiePropertyBase {
     }
   }
 };
+using HomieNodeSwitch = HomieNodeSingleProperty<HomieSwitchProperty>;
+#endif
 
-using HomieNodeSensor = HomieNodeSimpleProperty<HomieSensorProperty>;
-using HomieNodeSwitch = HomieNodeSimpleProperty<HomieSwitchProperty>;
+#ifdef USE_BINARY_SENSOR
+class HomieBinarySensorProperty : public HomiePropertyBase {
+ public:
+  using TargetType = esphome::binary_sensor::BinarySensor;
+  TargetType *target;
+
+  HomieBinarySensorProperty(TargetType *target) : target(target) {}
+
+  std::string get_id() const override { return "state"; }
+  std::string get_name() const override { return "State"; }
+  homie::datatype get_datatype() const override { return homie::datatype::boolean; }
+
+  // std::map<std::string, std::string> get_attributes() const override { return {}; }
+
+  std::string get_value() const override { return target->state ? "true" : "false"; }
+};
+using HomieNodeBinarySensor = HomieNodeSingleProperty<HomieBinarySensorProperty>;
+#endif
 
 }  // namespace mqtt_homie
 }  // namespace esphome

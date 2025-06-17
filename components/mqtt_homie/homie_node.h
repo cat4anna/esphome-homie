@@ -29,6 +29,7 @@ class HomieNodeBase : public Component, public homie::node {
   bool is_array() const override;
   std::pair<int64_t, int64_t> array_range() const override;
 
+
 	std::map<std::string, std::string> get_attributes() const override;
 
   void attach_device(HomieDevice *device) { this->device = device; }
@@ -44,15 +45,17 @@ class HomiePropertyBase : public homie::property {
  public:
   // virtual std::string get_id() const = 0;
   // virtual std::string get_name() const = 0;
-  // virtual bool is_settable() const = 0;
-  // virtual datatype get_datatype() const = 0;
 
+  homie::datatype get_datatype() const override { return homie::datatype::string; };
   std::string get_format() const override { return ""; }
   std::string get_value() const override { return ""; }
   std::string get_unit() const override { return ""; }
   std::string get_value(int64_t node_idx) const override { return ""; }
   void set_value(int64_t node_idx, const std::string &value) override {};
   void set_value(const std::string &value) override {}
+
+  bool is_settable() const override { return false; }
+  bool is_retained() const override { return false; }
 
 	std::map<std::string, std::string> get_attributes() const override { return {}; }
 };

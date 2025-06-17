@@ -11,20 +11,13 @@ namespace mqtt_homie {
 
 class MqttProxy : public homie::mqtt_client {
  public:
-  MqttProxy(esphome::mqtt_client::MQTTClientComponent *client) : client(client) { client->set_handler(&proxy); }
+  MqttProxy(esphome::mqtt::MQTTClientComponent *client) : client(client) { client->set_handler(&proxy); }
 
   void set_event_handler(homie::mqtt_event_handler *evt) override { proxy.handler = evt; }
 
-  void open(const std::string &will_topic, const std::string &will_payload, int will_qos, bool will_retain) override {
-    client->set_last_will(esphome::mqtt_client::MQTTMessage{
-        .topic = will_topic,
-        .payload = will_payload,
-        .qos = static_cast<uint8_t>(will_qos),
-        .retain = will_retain,
-    });
-  }
+  void open(const std::string &will_topic, const std::string &will_payload, int will_qos, bool will_retain) override { }
   void publish(const std::string &topic, const std::string &payload, int qos, bool retain) override {
-    client->publish(esphome::mqtt_client::MQTTMessage{
+    client->publish(esphome::mqtt::MQTTMessage{
         .topic = topic,
         .payload = payload,
         .qos = static_cast<uint8_t>(qos),
@@ -44,12 +37,12 @@ class MqttProxy : public homie::mqtt_client {
   bool is_connected() const override { return client->is_connected(); }
 
  private:
-  esphome::mqtt_client::MQTTClientComponent *client = nullptr;
+  esphome::mqtt::MQTTClientComponent *client = nullptr;
 
-  class MqttToHomieProxy : public esphome::mqtt_client::MqttStateHandler {
+  class MqttToHomieProxy : public esphome::mqtt::MqttStateHandler {
    public:
     homie::mqtt_event_handler *handler = nullptr;
-    void on_connect() {
+    void on_connected() {
       if (handler)
         handler->on_connect();
     }
@@ -69,15 +62,13 @@ class MqttProxy : public homie::mqtt_client {
   MqttToHomieProxy proxy;
 };
 
-HomieClient::HomieClient(mqtt_client::MQTTClientComponent *client) {
-  mqtt_proxy = std::make_unique<MqttProxy>(client);
-}
+HomieClient::HomieClient(mqtt::MQTTClientComponent *client) { mqtt_proxy = std::make_unique<MqttProxy>(client); }
 
-void HomieClient::start_homie(HomieDevice* device, std::string prefix, int qos, bool retained) {
+void HomieClient::start_homie(HomieDevice *device, std::string prefix, int qos, bool retained) {
   if (homie_client)
     return;
 
-  if(!prefix.empty() && prefix.back() != '/')
+  if (!prefix.empty() && prefix.back() != '/')
     prefix += "/";
 
   homie_client = std::make_unique<homie::client>(*mqtt_proxy, device, prefix, qos, retained);

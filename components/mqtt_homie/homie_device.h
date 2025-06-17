@@ -2,6 +2,7 @@
 #pragma once
 
 #include "esphome/core/defines.h"
+#include "esphome/core/controller.h"
 
 #include <vector>
 #include <memory>
@@ -16,7 +17,7 @@ namespace mqtt_homie {
 class HomieNodeBase;
 class HomiePropertyBase;
 
-class HomieDevice : public homie::device, public PollingComponent {
+class HomieDevice : public ::homie::device, public PollingComponent {
  public:
   static constexpr auto TAG = "homie:device";
 
