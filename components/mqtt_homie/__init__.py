@@ -2,14 +2,12 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.const import (
     CONF_ID,
-    PLATFORM_ESP32,
-    PLATFORM_ESP8266,
-    PLATFORM_BK72XX,
-    PLATFORM_RTL87XX,
 )
 from esphome.core import coroutine_with_priority, CORE
 from esphome import automation, controller
 from esphome.components.mqtt import MQTTClientComponent, MQTTMessage
+from esphome.components import logger
+from . import homie_schema
 
 MQTT_CLIENT = "mqtt_client"
 HOMIE_DEVICE = "homie_device"
@@ -17,10 +15,13 @@ HOMIE_DEVICE = "homie_device"
 AUTO_LOAD = ["mqtt"]
 DEPENDENCIES = ["network"]
 
-CONF_HOMIE_PREFIX="prefix"
-CONF_HOMIE_QOS="qos"
-CONF_HOMIE_RETAINED="retained"
-CONF_HOMIE_LOG_TOPIC = "log_topic"
+class CONFIG:
+    PREFIX="prefix"
+    QOS="qos"
+    RETAINED="retained"
+    LOG_TOPIC = "log_topic"
+    LOG_LEVEL = "log_level"
+
 
 mqtt_homie_ns = cg.esphome_ns.namespace("mqtt_homie")
 HomieClient = mqtt_homie_ns.class_("HomieClient", cg.Component)
@@ -32,10 +33,13 @@ CONFIG_SCHEMA = cv.All(
             cv.GenerateID(): cv.declare_id(HomieClient),
             cv.GenerateID(HOMIE_DEVICE): cv.declare_id(HomieDevice),
             cv.GenerateID(MQTT_CLIENT): cv.use_id(MQTTClientComponent),
-            cv.Optional(CONF_HOMIE_PREFIX, default="homie/"): cv.string,
+            cv.Optional(CONFIG.PREFIX, default="homie/"): cv.string,
 
-            cv.Optional(CONF_HOMIE_QOS, default="1"): cv.int_range(0,2),
-            cv.Optional(CONF_HOMIE_RETAINED, default="true"): cv.boolean,
+            cv.Optional(CONFIG.QOS, default="1"): homie_schema.qos,
+            cv.Optional(CONFIG.RETAINED, default="true"): cv.boolean,
+
+            cv.Optional(CONFIG.LOG_TOPIC, default=""): homie_schema.homie_config_key,
+            cv.Optional(CONFIG.LOG_LEVEL): logger.is_log_level,
         }
     ).extend(cv.COMPONENT_SCHEMA).extend(cv.polling_component_schema("10s")),
 )
@@ -44,21 +48,19 @@ def make_homie_message(config, topic, payload):
     if config is None:
         return cg.optional(cg.TemplateArguments(MQTTMessage))
 
-    prefix = config[CONF_HOMIE_PREFIX]
+    prefix = config[CONFIG.PREFIX]
 
     exp = cg.StructInitializer(
         MQTTMessage,
         ("topic", f"{prefix}/{CORE.name}/{topic}"),
         ("payload", payload),
-        ("qos", config[CONF_HOMIE_QOS]),
-        ("retain", config[CONF_HOMIE_RETAINED]),
+        ("qos", config[CONFIG.QOS]),
+        ("retain", config[CONFIG.RETAINED]),
     )
     return exp
 
 @coroutine_with_priority(45.0)
 async def to_code(config):
-    cg.add_define("USE_SECONDARY_CONTROLLER")
-
     mqtt_client = await cg.get_variable(config[MQTT_CLIENT])
 
     homie_client = cg.new_Pvariable(config[CONF_ID], mqtt_client)
@@ -71,10 +73,18 @@ async def to_code(config):
     cg.add(mqtt_client.set_last_will(make_homie_message(config, "$state", "lost")))
     cg.add(mqtt_client.disable_shutdown_message())
 
+    log_topic = config[CONFIG.LOG_TOPIC]
+    if not log_topic:
+        cg.add(mqtt_client.disable_log_message())
+    else:
+        cg.add(mqtt_client.set_log_message_template(make_homie_message(config, log_topic, "")))
+        if CONFIG.LOG_LEVEL in config:
+            cg.add(mqtt_client.set_log_level(logger.LOG_LEVELS[CONFIG.LOG_LEVEL]))
+
     cg.add(homie_client.start_homie(homie_device,
-                                    config[CONF_HOMIE_PREFIX],
-                                    config[CONF_HOMIE_QOS],
-                                    config[CONF_HOMIE_RETAINED],
+                                    config[CONFIG.PREFIX],
+                                    config[CONFIG.QOS],
+                                    config[CONFIG.RETAINED],
                                     ))
 
 class HomieController(controller.BaseController):

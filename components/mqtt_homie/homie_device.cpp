@@ -14,6 +14,19 @@
 #include "esphome/core/version.h"
 #include "esphome/components/network/util.h"
 
+// #ifdef USE_LOGGER
+// if (this->is_log_message_enabled() && logger::global_logger != nullptr) {
+//   logger::global_logger->add_on_log_callback([this](int level, const char *tag, const char *message) {
+//     if (level <= this->log_level_ && this->is_connected()) {
+//       this->publish({.topic = this->log_message_.topic,
+//                      .payload = message,
+//                      .qos = this->log_message_.qos,
+//                      .retain = this->log_message_.retain});
+//     }
+//   });
+// }
+// #endif
+
 namespace esphome {
 namespace mqtt_homie {
 
