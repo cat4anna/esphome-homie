@@ -1,4 +1,3 @@
-
 #pragma once
 
 #include "esphome/core/defines.h"
@@ -9,7 +8,7 @@
 #include <map>
 
 #include <stdexcept>
-#include "homie-cpp-merged.h"
+#include "homie-cpp.h"
 
 namespace esphome {
 namespace mqtt_homie {

@@ -11,7 +11,7 @@
 #include <memory>
 
 #include <stdexcept>
-#include "homie-cpp-merged.h"
+#include "homie-cpp.h"
 
 namespace esphome {
 namespace mqtt_homie {

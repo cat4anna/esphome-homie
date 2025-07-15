@@ -9,6 +9,7 @@ from esphome.components.mqtt import MQTTClientComponent, MQTTMessage
 from esphome.components import logger
 from . import homie_schema
 from types import LambdaType
+import os, re
 
 MQTT_CLIENT = "mqtt_client"
 HOMIE_DEVICE = "homie_device"
@@ -152,6 +153,38 @@ class HomieController(controller.BaseController):
         homie_device = await cg.get_variable(config[HOMIE_DEVICE])
         cg.add(homie_device.attach_node(node))
 
+def make_homie_cpp_merged():
+    FILES = [
+        "utils.h",
+        "datatype.h",
+        "device_state.h",
+        "mqtt_event_handler.h",
+        "client_event_handler.h",
+        "mqtt_client.h",
+        "property.h",
+        "node.h",
+        "device.h",
+        "client.h",
+    ]
+    base_path = os.path.dirname(os.path.realpath(__file__))
+    with open(os.path.join(base_path, "homie-cpp-merged-generated.h"), "w") as output:
+        output.write("#pragma once\n")
+        output.write("#include <set>\n")
+        output.write("#include <memory>\n")
+        output.write("#include <map>\n")
+        output.write("#include <string>\n")
+        output.write("#include <vector>\n")
+        for f in FILES:
+            with open(os.path.join(base_path, "homie-cpp", f), "rb") as source:
+                content = source.read().decode("utf-8")
+                #remove all 'pragma once' and includes
+                content = re.sub(r'#(pragma once|include).*\n', '', content)
+                output.write(content)
+                output.write('\n')
+
+
+
+
 
 controller.register_secondary_controller(HomieController())
-
+make_homie_cpp_merged()

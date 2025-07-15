@@ -13,7 +13,7 @@
 #include <map>
 #include <stdexcept>
 
-#include "homie-cpp-merged.h"
+#include "homie-cpp.h"
 #include "homie_node.h"
 
 namespace esphome {

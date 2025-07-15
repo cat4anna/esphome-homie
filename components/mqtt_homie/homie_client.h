@@ -10,7 +10,7 @@
 #include <memory>
 
 #include <stdexcept>
-#include "homie-cpp-merged.h"
+#include "homie-cpp.h"
 
 #include "esphome/components/mqtt/mqtt_client.h"
 

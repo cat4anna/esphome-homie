@@ -6,7 +6,7 @@ ALL CREDITS TO ORIGINAL CREATOR
 ORIGINAL LICENSE: MIT
 BASED ON COMMIT: cd9276b2656701cf48c41de1bf4b4cfd5dcf0b0e
 
-Modified for arduino needs
+Modified for esphome needs
 
 Supports Homie version 3.0 (redesign branch) both as a device and a master role.
 It is not built around a specific mqtt library, so you can use what ever you like to.
