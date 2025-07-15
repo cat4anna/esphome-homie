@@ -1,5 +1,6 @@
 #pragma once
 
+#include "esphome.h"
 #include "esphome/core/defines.h"
 #include "esphome/core/controller.h"
 #include "esphome/core/component.h"
@@ -10,11 +11,9 @@
 #include <vector>
 #include <memory>
 #include <map>
-
-
 #include <stdexcept>
-#include "homie-cpp-merged.h"
 
+#include "homie-cpp-merged.h"
 #include "homie_node.h"
 
 namespace esphome {
@@ -29,6 +28,7 @@ template<class PropertyClass> class HomieNodeSingleProperty : public HomieNodeBa
 
   HomieNodeSingleProperty(typename PropertyClass::TargetType *target) : property(target) {
     target->add_on_state_callback([this](auto) { notify_property_changed(&property); });
+    property.set_parent(this);
   }
 
   std::set<std::string> get_properties() const override { return {property.get_id()}; }
@@ -131,8 +131,6 @@ class HomieBinarySensorProperty : public HomiePropertyBase {
   std::string get_id() const override { return "state"; }
   std::string get_name() const override { return "State"; }
   homie::datatype get_datatype() const override { return homie::datatype::boolean; }
-
-  // std::map<std::string, std::string> get_attributes() const override { return {}; }
 
   std::string get_value() const override { return target->state ? "true" : "false"; }
 };

@@ -8,6 +8,7 @@ from esphome import automation, controller
 from esphome.components.mqtt import MQTTClientComponent, MQTTMessage
 from esphome.components import logger
 from . import homie_schema
+from types import LambdaType
 
 MQTT_CLIENT = "mqtt_client"
 HOMIE_DEVICE = "homie_device"
@@ -87,7 +88,12 @@ async def to_code(config):
                                     config[CONFIG.RETAINED],
                                     ))
 
+
+class HomieNodeBase:
+    pass
+
 class HomieController(controller.BaseController):
+    CONTROLLER_NAME = "homie"
     CONF_HOMIE_ID = "homie_id"
 
     CLASS_TYPE = {
@@ -114,17 +120,28 @@ class HomieController(controller.BaseController):
     }
 
     def __init__(self):
+        self.known_classes = self.CLASS_TYPE
         pass
 
     def extend_component_schema(self, component: str, schema):
-        class_type = self.CLASS_TYPE[component]
-        NodeTemplate = mqtt_homie_ns.class_(f"HomieNode{class_type}", cg.Component)
+        class_type = self.known_classes[component]
+        if isinstance(class_type, str):
+            NodeTemplate = mqtt_homie_ns.class_(f"HomieNode{class_type}", cg.Component)
+        elif isinstance(class_type, LambdaType):
+            NodeTemplate = class_type()
+        else:
+            NodeTemplate = class_type
+
         return schema.extend(
             {
                 cv.OnlyWith(self.CONF_HOMIE_ID, "mqtt_homie"): cv.declare_id(NodeTemplate),
                 cv.GenerateID(HOMIE_DEVICE): cv.use_id(HomieDevice),
             }
         )
+
+    def register_node_class(self, node: HomieNodeBase):
+        self.known_classes = self.known_classes | node.CLASS_TYPE
+        print(self.known_classes.keys())
 
     async def register_component(self, component: str, var, config):
         node_id = config.get(self.CONF_HOMIE_ID)
@@ -134,6 +151,7 @@ class HomieController(controller.BaseController):
         await cg.register_component(node, {})
         homie_device = await cg.get_variable(config[HOMIE_DEVICE])
         cg.add(homie_device.attach_node(node))
+
 
 controller.register_secondary_controller(HomieController())
 
