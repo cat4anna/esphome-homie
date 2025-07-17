@@ -7,7 +7,6 @@
 #include <memory>
 #include <map>
 
-#include <stdexcept>
 #include "homie-cpp.h"
 
 namespace esphome {
@@ -31,6 +30,7 @@ class HomieDevice : public ::homie::device, public PollingComponent {
 
   homie::device_state get_state() const override;
   std::map<std::string, std::string> get_attributes() const override;
+  std::map<std::string, std::string> get_stats() const override;
 
   void attach_node(HomieNodeBase *node);
   void notify_node_changed(HomieNodeBase *node, HomiePropertyBase *property);
@@ -47,6 +47,12 @@ class HomieDevice : public ::homie::device, public PollingComponent {
   homie::device_state device_state = homie::device_state::init;
 
   void goto_state(homie::device_state new_state);
+
+  uint64_t get_uptime_seconds() const;
+
+ private:
+  int m_stat_update_interval = 60;
+  mutable uint64_t m_uptime_ms = 0;
 };
 
 }  // namespace mqtt_homie

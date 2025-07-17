@@ -252,8 +252,14 @@ class client : private mqtt_event_handler {
 
   void notify_device_state_changed() { this->publish_device_attribute("$state", enum_to_string(dev->get_state())); }
 
+  void update_device_stats() {
+    for (const auto &[key, value] : dev->get_stats()) {
+      this->publish_device_attribute("$stats/" + key, value);
+    }
+  }
+
   void set_event_handler(client_event_handler *hdl) { handler = hdl; }
 
-  bool is_connected() const { return mqtt.is_connected() && device_info_published; }
+  bool is_connected() const { return mqtt.is_connected(); }
 };
-}
+}  // namespace homie

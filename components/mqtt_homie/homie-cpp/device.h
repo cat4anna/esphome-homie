@@ -19,6 +19,7 @@ struct device {
   virtual const_node_ptr get_node(const std::string &id) const = 0;
 
   virtual std::map<std::string, std::string> get_attributes() const = 0;
+  virtual std::map<std::string, std::string> get_stats() const = 0;
   virtual device_state get_state() const = 0;
 };
 

@@ -14,8 +14,7 @@
 
 #include "esphome/components/mqtt/mqtt_client.h"
 
-namespace esphome {
-namespace mqtt_homie {
+namespace esphome::mqtt_homie {
 
 class MqttProxy;
 
@@ -26,14 +25,14 @@ class HomieClient : public Component {
  public:
   HomieClient(mqtt::MQTTClientComponent *client);
 
-  void start_homie(HomieDevice* device, std::string prefix, int qos, bool retained);
+  void start_homie(HomieDevice *device, std::string prefix, int qos, bool retained);
 
-  void set_update_interval(uint32_t) { /* nothing */ }
+  void set_update_interval(uint32_t) { /* nothing */
+  }
 
  protected:
   std::unique_ptr<homie::client> homie_client;
   std::unique_ptr<MqttProxy> mqtt_proxy;
 };
 
-}  // namespace mqtt_homie
-}  // namespace esphome
+}  // namespace esphome::mqtt_homie

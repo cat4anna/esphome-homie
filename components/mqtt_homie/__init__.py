@@ -43,7 +43,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONFIG.LOG_TOPIC, default=""): homie_schema.homie_config_key,
             cv.Optional(CONFIG.LOG_LEVEL): logger.is_log_level,
         }
-    ).extend(cv.COMPONENT_SCHEMA).extend(cv.polling_component_schema("10s")),
+    ).extend(cv.COMPONENT_SCHEMA).extend(cv.polling_component_schema("1s")),
 )
 
 def make_homie_message(config, topic, payload):
@@ -142,7 +142,6 @@ class HomieController(controller.BaseController):
 
     def register_node_class(self, node: HomieNodeBase):
         self.known_classes = self.known_classes | node.CLASS_TYPE
-        print(self.known_classes.keys())
 
     async def register_component(self, component: str, var, config):
         node_id = config.get(self.CONF_HOMIE_ID)
