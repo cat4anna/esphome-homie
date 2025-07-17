@@ -41,6 +41,8 @@ class HomieDevice : public ::homie::device, public PollingComponent {
 
   void set_stats_interval(int v) { m_stat_update_interval = v; }
 
+  void push_log_message(int level, const char *tag, const char *message) const;
+
  private:
   homie::client *m_client;
   std::map<std::string, HomieNodeBase *> m_nodes;
@@ -48,7 +50,7 @@ class HomieDevice : public ::homie::device, public PollingComponent {
   homie::device_state m_device_state = homie::device_state::lost;
   bool m_protocol_initialised = false;
 
-  int m_stat_update_interval = 60;
+  int m_stat_update_interval = 60000;
   mutable uint64_t m_uptime_ms = 0;
 
   uint64_t get_uptime_seconds() const;

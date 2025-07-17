@@ -25,12 +25,16 @@ class HomieClient : public Component {
  public:
   HomieClient(mqtt::MQTTClientComponent *client);
 
+  void set_update_interval(uint32_t) {}
+  void setup_logging(int level) { m_log_level = level; };
+
+  void setup() override;
+
   void start_homie(HomieDevice *device, std::string prefix, int qos, bool retained);
 
-  void set_update_interval(uint32_t) { /* nothing */
-  }
-
  protected:
+  int m_log_level = ESPHOME_LOG_LEVEL_NONE;
+  HomieDevice *m_device = nullptr;
   std::unique_ptr<homie::client> homie_client;
   std::unique_ptr<MqttProxy> mqtt_proxy;
 };

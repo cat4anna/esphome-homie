@@ -165,9 +165,11 @@ class client : private mqtt_event_handler {
 
   void update_device_stats() const {
     for (const auto &[key, value] : dev->get_stats()) {
-      this->publish_device_attribute("$stats/" + key, value);
+      this->publish_device_attribute("$stats/" + key, value, false);
     }
   }
+
+  void publish_log_message(const std::string &message) const { this->publish_device_attribute("$log", message, false); }
 
   void publish_device_info() const {
     // Public device properties

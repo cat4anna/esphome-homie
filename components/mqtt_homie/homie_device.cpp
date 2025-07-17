@@ -74,7 +74,7 @@ std::map<std::string, std::string> HomieDevice::get_attributes() const {
 #endif
 
       {"stats/stats", "uptime,signal,freeheap"},
-      {"stats/interval", std::to_string(m_stat_update_interval)},
+      {"stats/interval", std::to_string(m_stat_update_interval / 1000)},
   };
 }
 
@@ -114,8 +114,7 @@ void HomieDevice::goto_state(homie::device_state new_state) {
   switch (MakeStateTransition(prev_state, new_state)) {
     case MakeStateTransition(device_state::init, device_state::ready):
       m_client->update_device_stats();
-      this->set_interval(gHomeStatTimerId, 1000 * m_stat_update_interval,
-                         [this]() { m_client->update_device_stats(); });
+      this->set_interval(gHomeStatTimerId, m_stat_update_interval, [this]() { m_client->update_device_stats(); });
       break;
   }
 
@@ -178,5 +177,9 @@ uint64_t HomieDevice::get_uptime_seconds() const {
 }
 
 void HomieDevice::update() { check_device_state(); }
+
+void HomieDevice::push_log_message(int level, const char *tag, const char *message) const {
+  m_client->publish_log_message(message);
+}
 
 }  // namespace esphome::mqtt_homie

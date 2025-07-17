@@ -21,8 +21,8 @@ class CONFIG:
     PREFIX="prefix"
     QOS="qos"
     RETAINED="retained"
-    LOG_TOPIC = "log_topic"
     LOG_LEVEL = "log_level"
+    STATS_INTERVAL = "stats_interval"
 
 
 mqtt_homie_ns = cg.esphome_ns.namespace("mqtt_homie")
@@ -35,13 +35,14 @@ CONFIG_SCHEMA = cv.All(
             cv.GenerateID(): cv.declare_id(HomieClient),
             cv.GenerateID(HOMIE_DEVICE): cv.declare_id(HomieDevice),
             cv.GenerateID(MQTT_CLIENT): cv.use_id(MQTTClientComponent),
-            cv.Optional(CONFIG.PREFIX, default="homie/"): cv.string,
+            cv.Optional(CONFIG.PREFIX, default="homie"): cv.string,
+
+            cv.Optional(CONFIG.STATS_INTERVAL, default="60s"): cv.update_interval,
 
             cv.Optional(CONFIG.QOS, default="1"): homie_schema.qos,
             cv.Optional(CONFIG.RETAINED, default="true"): cv.boolean,
 
-            cv.Optional(CONFIG.LOG_TOPIC, default=""): homie_schema.homie_config_key,
-            cv.Optional(CONFIG.LOG_LEVEL): logger.is_log_level,
+            cv.Optional(CONFIG.LOG_LEVEL, default="warn"): logger.is_log_level,
         }
     ).extend(cv.COMPONENT_SCHEMA).extend(cv.polling_component_schema("1s")),
 )
@@ -71,18 +72,11 @@ async def to_code(config):
     homie_device = cg.new_Pvariable(config[HOMIE_DEVICE])
     await cg.register_component(homie_device, config)
 
-    # cg.add(mqtt_client.set_birth_message(make_homie_message(config, "$state", "init")))
     cg.add(mqtt_client.set_last_will(make_homie_message(config, "$state", "lost")))
-    cg.add(mqtt_client.disable_shutdown_message())
 
-    log_topic = config[CONFIG.LOG_TOPIC]
-    if not log_topic:
-        cg.add(mqtt_client.disable_log_message())
-    else:
-        cg.add(mqtt_client.set_log_message_template(make_homie_message(config, log_topic, "")))
-        if CONFIG.LOG_LEVEL in config:
-            cg.add(mqtt_client.set_log_level(logger.LOG_LEVELS[CONFIG.LOG_LEVEL]))
+    cg.add(homie_device.set_stats_interval(config[CONFIG.STATS_INTERVAL]))
 
+    cg.add(homie_client.setup_logging(logger.LOG_LEVELS[config[CONFIG.LOG_LEVEL]]))
     cg.add(homie_client.start_homie(homie_device,
                                     config[CONFIG.PREFIX],
                                     config[CONFIG.QOS],

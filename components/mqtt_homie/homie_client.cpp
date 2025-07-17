@@ -4,6 +4,10 @@
 #include "esphome/core/application.h"
 #include "esphome/components/network/util.h"
 
+#ifdef USE_LOGGER
+#include "esphome/components/logger/logger.h"
+#endif
+
 #define TAG "homie:client"
 
 namespace esphome {
@@ -15,7 +19,7 @@ class MqttProxy : public homie::mqtt_client {
 
   void set_event_handler(homie::mqtt_event_handler *evt) override { proxy.handler = evt; }
 
-  void open(const std::string &will_topic, const std::string &will_payload, int will_qos, bool will_retain) override { }
+  void open(const std::string &will_topic, const std::string &will_payload, int will_qos, bool will_retain) override {}
   void publish(const std::string &topic, const std::string &payload, int qos, bool retain) override {
     client->publish(esphome::mqtt::MQTTMessage{
         .topic = topic,
@@ -68,11 +72,23 @@ void HomieClient::start_homie(HomieDevice *device, std::string prefix, int qos, 
   if (homie_client)
     return;
 
+  m_device = device;
+
   if (!prefix.empty() && prefix.back() != '/')
     prefix += "/";
 
   homie_client = std::make_unique<homie::client>(*mqtt_proxy, device, prefix, qos, retained);
   device->set_client(homie_client.get());
+}
+
+void HomieClient::setup() {
+#ifdef USE_LOGGER
+  logger::global_logger->add_on_log_callback([this](int level, const char *tag, const char *message) {
+    if (level <= this->m_log_level) {
+      m_device->push_log_message(level, tag, message);
+    }
+  });
+#endif  //
 }
 
 }  // namespace mqtt_homie
