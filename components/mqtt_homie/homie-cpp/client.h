@@ -13,23 +13,14 @@ class client : private mqtt_event_handler {
   std::string base_topic;
   device_ptr dev;
   client_event_handler *handler;
-  bool device_info_published = false;
   int qos;
   bool retained;
 
   // Inherited by mqtt_event_handler
-  virtual void on_connect() override {
-    if (!device_info_published) {
-      publish_device_info();
-      device_info_published = true;
-    }
-  }
-  virtual void on_closing() override {
-    mqtt.publish(base_topic + dev->get_id() + "/$state", enum_to_string(device_state::disconnected), 1, true);
-    device_info_published = false;
-  }
-  virtual void on_closed() override { device_info_published = false; }
-  virtual void on_offline() override { device_info_published = false; }
+  virtual void on_connect() override {}
+  virtual void on_closing() override { publish_device_attribute("$state", enum_to_string(device_state::disconnected)); }
+  virtual void on_closed() override {}
+  virtual void on_offline() override {}
   virtual void on_message(const std::string &topic, const std::string &payload) override {
     // Check basetopic
     if (topic.size() < base_topic.size())
@@ -96,15 +87,91 @@ class client : private mqtt_event_handler {
       handler->on_broadcast(level, payload);
   }
 
-  void publish_device_info() {
-    using namespace esphome;
-    ESP_LOGI(TAG, "Publishing device info");
+  void publish_device_attribute(const std::string &attribute, const std::string &value,
+                                bool wants_retained = true) const {
+    mqtt.publish(base_topic + dev->get_id() + "/" + attribute, value, qos, retained && wants_retained);
+  }
 
-    // Signal initialisation phase
-    this->publish_device_attribute("$state", enum_to_string(device_state::init));
+  void publish_node_attribute(const_node_ptr node, const std::string &attribute, const std::string &value,
+                              bool wants_retained = true) const {
+    publish_device_attribute(node->get_id() + "/" + attribute, value, wants_retained);
+  }
 
+  void publish_property_attribute(const_node_ptr node, const_property_ptr prop, const std::string &attribute,
+                                  const std::string &value, bool wants_retained = true) const {
+    publish_node_attribute(node, prop->get_id() + "/" + attribute, value, wants_retained);
+  }
+
+  void notify_property_changed_impl(const std::string &snode, const std::string &sproperty, const int64_t *idx) const {
+    if (snode.empty() || sproperty.empty())
+      return;
+
+    auto node = dev->get_node(snode);
+    if (!node)
+      return;
+    auto prop = node->get_property(sproperty);
+    if (!prop)
+      return;
+    notify_property_changed_impl(node, prop, idx);
+  }
+
+  void notify_property_changed_impl(node *node, property *prop, const int64_t *idx) const {
+    if (!node || !prop)
+      return;
+
+    if (node->is_array()) {
+      if (idx != nullptr) {
+        this->publish_device_attribute(node->get_id() + "_" + std::to_string(*idx) + "/" + prop->get_id(),
+                                       prop->get_value(*idx));
+      } else {
+        auto range = node->array_range();
+        for (auto i = range.first; i <= range.second; i++) {
+          this->publish_device_attribute(node->get_id() + "_" + std::to_string(i) + "/" + prop->get_id(),
+                                         prop->get_value(i));
+        }
+      }
+    } else {
+      this->publish_device_attribute(node->get_id() + "/" + prop->get_id(), prop->get_value());
+    }
+  }
+
+ public:
+  client(mqtt_client &con, device_ptr pdev, std::string basetopic = "homie/", int qos = 1, bool retained = true)
+      : mqtt(con), base_topic(basetopic), dev(pdev), handler(nullptr), qos(qos), retained(retained) {
+    mqtt.set_event_handler(this);
+
+    mqtt.open(base_topic + dev->get_id() + "/$state", enum_to_string(device_state::lost), qos, retained);
+    mqtt.subscribe(base_topic + dev->get_id() + "/+/+/set", 1);
+  }
+
+  ~client() {
+    this->mqtt.unsubscribe(base_topic + dev->get_id() + "/+/+/set");
+    mqtt.set_event_handler(nullptr);
+  }
+
+  void notify_property_changed(const std::string &snode, const std::string &sproperty) const {
+    notify_property_changed_impl(snode, sproperty, nullptr);
+  }
+
+  void notify_property_changed(node *node, property *prop) const { notify_property_changed_impl(node, prop, nullptr); }
+
+  void notify_property_changed(const std::string &snode, const std::string &sproperty, int64_t idx) const {
+    notify_property_changed_impl(snode, sproperty, &idx);
+  }
+
+  void notify_device_state_changed() const {
+    this->publish_device_attribute("$state", enum_to_string(dev->get_state()));
+  }
+
+  void update_device_stats() const {
+    for (const auto &[key, value] : dev->get_stats()) {
+      this->publish_device_attribute("$stats/" + key, value);
+    }
+  }
+
+  void publish_device_info() const {
     // Public device properties
-    this->publish_device_attribute("$homie", "3.0.0");
+    this->publish_device_attribute("$homie", "3.0.1");
     this->publish_device_attribute("$name", dev->get_name());
 
     for (const auto &[key, value] : dev->get_attributes()) {
@@ -173,89 +240,6 @@ class client : private mqtt_event_handler {
     if (!nodes.empty())
       nodes.resize(nodes.size() - 1);
     this->publish_device_attribute("$nodes", nodes);
-
-    // Everything done, set device to real state
-    this->publish_device_attribute("$state", enum_to_string(dev->get_state()));
-  }
-
-  void publish_device_attribute(const std::string &attribute, const std::string &value, bool wants_retained = true) {
-    mqtt.publish(base_topic + dev->get_id() + "/" + attribute, value, qos, retained && wants_retained);
-  }
-
-  void publish_node_attribute(const_node_ptr node, const std::string &attribute, const std::string &value,
-                              bool wants_retained = true) {
-    publish_device_attribute(node->get_id() + "/" + attribute, value, wants_retained);
-  }
-
-  void publish_property_attribute(const_node_ptr node, const_property_ptr prop, const std::string &attribute,
-                                  const std::string &value, bool wants_retained = true) {
-    publish_node_attribute(node, prop->get_id() + "/" + attribute, value, wants_retained);
-  }
-
-  void notify_property_changed_impl(const std::string &snode, const std::string &sproperty, const int64_t *idx) {
-    if (snode.empty() || sproperty.empty())
-      return;
-
-    auto node = dev->get_node(snode);
-    if (!node)
-      return;
-    auto prop = node->get_property(sproperty);
-    if (!prop)
-      return;
-    notify_property_changed_impl(node, prop, idx);
-  }
-
-  void notify_property_changed_impl(node *node, property *prop, const int64_t *idx) {
-    if (!node || !prop)
-      return;
-
-    if (node->is_array()) {
-      if (idx != nullptr) {
-        this->publish_device_attribute(node->get_id() + "_" + std::to_string(*idx) + "/" + prop->get_id(),
-                                       prop->get_value(*idx));
-      } else {
-        auto range = node->array_range();
-        for (auto i = range.first; i <= range.second; i++) {
-          this->publish_device_attribute(node->get_id() + "_" + std::to_string(i) + "/" + prop->get_id(),
-                                         prop->get_value(i));
-        }
-      }
-    } else {
-      this->publish_device_attribute(node->get_id() + "/" + prop->get_id(), prop->get_value());
-    }
-  }
-
- public:
-  client(mqtt_client &con, device_ptr pdev, std::string basetopic = "homie/", int qos = 1, bool retained = true)
-      : mqtt(con), base_topic(basetopic), dev(pdev), handler(nullptr), qos(qos), retained(retained) {
-    mqtt.set_event_handler(this);
-
-    mqtt.open(base_topic + dev->get_id() + "/$state", enum_to_string(device_state::lost), qos, retained);
-    mqtt.subscribe(base_topic + dev->get_id() + "/+/+/set", 1);
-  }
-
-  ~client() {
-    this->publish_device_attribute("$state", enum_to_string(device_state::disconnected));
-    this->mqtt.unsubscribe(base_topic + dev->get_id() + "/+/+/set");
-    mqtt.set_event_handler(nullptr);
-  }
-
-  void notify_property_changed(const std::string &snode, const std::string &sproperty) {
-    notify_property_changed_impl(snode, sproperty, nullptr);
-  }
-
-  void notify_property_changed(node *node, property *prop) { notify_property_changed_impl(node, prop, nullptr); }
-
-  void notify_property_changed(const std::string &snode, const std::string &sproperty, int64_t idx) {
-    notify_property_changed_impl(snode, sproperty, &idx);
-  }
-
-  void notify_device_state_changed() { this->publish_device_attribute("$state", enum_to_string(dev->get_state())); }
-
-  void update_device_stats() {
-    for (const auto &[key, value] : dev->get_stats()) {
-      this->publish_device_attribute("$stats/" + key, value);
-    }
   }
 
   void set_event_handler(client_event_handler *hdl) { handler = hdl; }

@@ -34,25 +34,27 @@ class HomieDevice : public ::homie::device, public PollingComponent {
 
   void attach_node(HomieNodeBase *node);
   void notify_node_changed(HomieNodeBase *node, HomiePropertyBase *property);
-  void set_client(homie::client *client) { this->client = client; }
+  void set_client(homie::client *client) { m_client = client; }
 
   void setup() override;
   void update() override;
 
+  void set_stats_interval(int v) { m_stat_update_interval = v; }
+
  private:
-  homie::client *client;
-  std::map<std::string, HomieNodeBase *> nodes;
+  homie::client *m_client;
+  std::map<std::string, HomieNodeBase *> m_nodes;
 
-  uint32_t last_known_state = (~0);
-  homie::device_state device_state = homie::device_state::init;
+  homie::device_state m_device_state = homie::device_state::lost;
+  bool m_protocol_initialised = false;
 
-  void goto_state(homie::device_state new_state);
+  int m_stat_update_interval = 60;
+  mutable uint64_t m_uptime_ms = 0;
 
   uint64_t get_uptime_seconds() const;
 
- private:
-  int m_stat_update_interval = 60;
-  mutable uint64_t m_uptime_ms = 0;
+  void goto_state(homie::device_state new_state);
+  void check_device_state();
 };
 
 }  // namespace mqtt_homie

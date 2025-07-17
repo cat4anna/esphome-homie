@@ -4,7 +4,7 @@
 namespace homie {
 template<typename T> inline T enum_from_string(const std::string &s);
 
-enum class device_state { init, ready, disconnected, sleeping, lost, alert };
+enum class device_state : uint8_t { init, ready, disconnected, sleeping, lost, alert };
 
 inline std::string enum_to_string(device_state s) {
   switch (s) {

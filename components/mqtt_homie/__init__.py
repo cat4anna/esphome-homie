@@ -71,7 +71,7 @@ async def to_code(config):
     homie_device = cg.new_Pvariable(config[HOMIE_DEVICE])
     await cg.register_component(homie_device, config)
 
-    cg.add(mqtt_client.set_birth_message(make_homie_message(config, "$state", "init")))
+    # cg.add(mqtt_client.set_birth_message(make_homie_message(config, "$state", "init")))
     cg.add(mqtt_client.set_last_will(make_homie_message(config, "$state", "lost")))
     cg.add(mqtt_client.disable_shutdown_message())
 
