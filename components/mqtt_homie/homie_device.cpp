@@ -79,9 +79,11 @@ std::map<std::string, std::string> HomieDevice::get_attributes() const {
 }
 
 std::map<std::string, std::string> HomieDevice::get_stats() const {
+  auto rssi = wifi::global_wifi_component->wifi_rssi();
   return {
       {"uptime", std::to_string(get_uptime_seconds())},
-      {"signal", std::to_string(wifi::global_wifi_component->wifi_rssi())},
+      {"signal", std::to_string(clamp(2 * (rssi + 100), 0, 100)) + "%"},
+      {"signal_db", std::to_string(rssi)},
       {"freeheap", get_free_heap()},
   };
 }
@@ -111,56 +113,64 @@ void HomieDevice::goto_state(homie::device_state new_state) {
   m_client->notify_device_state_changed();
 
   using device_state = homie::device_state;
-  switch (MakeStateTransition(prev_state, new_state)) {
+  auto transition = MakeStateTransition(prev_state, new_state);
+  switch (transition) {
     case MakeStateTransition(device_state::init, device_state::ready):
+    case MakeStateTransition(device_state::init, device_state::alert):
       m_client->update_device_stats();
-      this->set_interval(gHomeStatTimerId, m_stat_update_interval, [this]() { m_client->update_device_stats(); });
+      m_client->start_subscription();
+      this->set_interval(gHomeStatTimerId, m_stat_update_interval,
+                         [this] { m_client->update_device_stats(); });
       break;
-  }
 
-  switch (new_state) {
-    case device_state::init:
-      if (!m_protocol_initialised) {
-        m_client->publish_device_info();
-        m_protocol_initialised = true;
-      }
+    case MakeStateTransition(device_state::disconnected, device_state::init):
+      m_client->publish_device_info();
       break;
-    case device_state::ready:
-      break;
-  }
 
-  if (new_state != device_state::ready) {
-    this->cancel_interval(gHomeStatTimerId);
+    case MakeStateTransition(device_state::ready, device_state::disconnected):
+    case MakeStateTransition(device_state::alert, device_state::disconnected):
+      m_client->stop_subscription();
+      this->cancel_interval(gHomeStatTimerId);
+      break;
+
+    case MakeStateTransition(device_state::ready, device_state::alert):
+    case MakeStateTransition(device_state::alert, device_state::ready):
+      // nothing
+      break;
+    case MakeStateTransition(device_state::lost, device_state::disconnected):
+      // initial setup
+      break;
+
+    default:
+      ESP_LOGW(TAG, "Unhandled state transition: %02x", transition);
   }
 }
 
 void HomieDevice::check_device_state() {
+  using device_state = homie::device_state;
+
   if (!m_client->is_connected()) {
-    m_protocol_initialised = false;
-    goto_state(homie::device_state::disconnected);
+    goto_state(device_state::disconnected);
     return;
   }
 
-  if (!m_protocol_initialised) {
-    goto_state(homie::device_state::init);
+  if (m_device_state == device_state::disconnected) {
+    goto_state(device_state::init);
     return;
   }
 
   const auto app_state = App.get_app_state();
 
-  auto led_status = app_state & STATUS_LED_MASK;
-  if (led_status == STATUS_LED_ERROR) {
+  const auto led_status = app_state & STATUS_LED_MASK;
+  if ((led_status & STATUS_LED_ERROR) != 0) {
     goto_state(homie::device_state::alert);
     return;
-  } else {
-    goto_state(homie::device_state::ready);
-    return;
   }
+
+  goto_state(homie::device_state::ready);
 }
 
-void HomieDevice::setup() {
-  // nothing here
-}
+void HomieDevice::setup() { goto_state(homie::device_state::disconnected); }
 
 uint64_t HomieDevice::get_uptime_seconds() const {
   const uint32_t ms = millis();

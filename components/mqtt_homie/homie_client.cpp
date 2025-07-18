@@ -10,17 +10,20 @@
 
 #define TAG "homie:client"
 
-namespace esphome {
-namespace mqtt_homie {
+namespace esphome::mqtt_homie {
 
 class MqttProxy : public homie::mqtt_client {
  public:
-  MqttProxy(esphome::mqtt::MQTTClientComponent *client) : client(client) { client->set_handler(&proxy); }
+  MqttProxy(esphome::mqtt::MQTTClientComponent *client) : client(client) {
+    client->set_handler(&proxy);
+  }
 
   void set_event_handler(homie::mqtt_event_handler *evt) override { proxy.handler = evt; }
 
-  void open(const std::string &will_topic, const std::string &will_payload, int will_qos, bool will_retain) override {}
-  void publish(const std::string &topic, const std::string &payload, int qos, bool retain) override {
+  void open(const std::string &will_topic, const std::string &will_payload, int will_qos,
+            bool will_retain) override {}
+  void publish(const std::string &topic, const std::string &payload, int qos,
+               bool retain) override {
     client->publish(esphome::mqtt::MQTTMessage{
         .topic = topic,
         .payload = payload,
@@ -66,7 +69,9 @@ class MqttProxy : public homie::mqtt_client {
   MqttToHomieProxy proxy;
 };
 
-HomieClient::HomieClient(mqtt::MQTTClientComponent *client) { mqtt_proxy = std::make_unique<MqttProxy>(client); }
+HomieClient::HomieClient(mqtt::MQTTClientComponent *client) {
+  mqtt_proxy = std::make_unique<MqttProxy>(client);
+}
 
 void HomieClient::start_homie(HomieDevice *device, std::string prefix, int qos, bool retained) {
   if (homie_client)
@@ -83,13 +88,13 @@ void HomieClient::start_homie(HomieDevice *device, std::string prefix, int qos, 
 
 void HomieClient::setup() {
 #ifdef USE_LOGGER
-  logger::global_logger->add_on_log_callback([this](int level, const char *tag, const char *message) {
-    if (level <= this->m_log_level) {
-      m_device->push_log_message(level, tag, message);
-    }
-  });
-#endif  //
+  logger::global_logger->add_on_log_callback(
+      [this](int level, const char *tag, const char *message) {
+        if (level <= this->m_log_level) {
+          m_device->push_log_message(level, tag, message);
+        }
+      });
+#endif
 }
 
-}  // namespace mqtt_homie
-}  // namespace esphome
+}  // namespace esphome::mqtt_homie

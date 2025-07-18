@@ -47,8 +47,7 @@ class HomieDevice : public ::homie::device, public PollingComponent {
   homie::client *m_client;
   std::map<std::string, HomieNodeBase *> m_nodes;
 
-  homie::device_state m_device_state = homie::device_state::lost;
-  bool m_protocol_initialised = false;
+  homie::device_state m_device_state = homie::device_state::disconnected;
 
   int m_stat_update_interval = 60000;
   mutable uint64_t m_uptime_ms = 0;
