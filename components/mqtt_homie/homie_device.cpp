@@ -82,7 +82,7 @@ std::map<std::string, std::string> HomieDevice::get_stats() const {
   auto rssi = wifi::global_wifi_component->wifi_rssi();
   return {
       {"uptime", std::to_string(get_uptime_seconds())},
-      {"signal", std::to_string(clamp(2 * (rssi + 100), 0, 100)) + "%"},
+      {"signal", std::to_string(clamp(2 * (rssi + 100), 0, 100))},
       {"signal_db", std::to_string(rssi)},
       {"freeheap", get_free_heap()},
   };
@@ -119,8 +119,8 @@ void HomieDevice::goto_state(homie::device_state new_state) {
     case MakeStateTransition(device_state::init, device_state::alert):
       m_client->update_device_stats();
       m_client->start_subscription();
-      this->set_interval(gHomeStatTimerId, m_stat_update_interval,
-                         [this] { m_client->update_device_stats(); });
+      set_interval(gHomeStatTimerId, m_stat_update_interval,
+                   [this] { m_client->update_device_stats(); });
       break;
 
     case MakeStateTransition(device_state::disconnected, device_state::init):
@@ -130,7 +130,7 @@ void HomieDevice::goto_state(homie::device_state new_state) {
     case MakeStateTransition(device_state::ready, device_state::disconnected):
     case MakeStateTransition(device_state::alert, device_state::disconnected):
       m_client->stop_subscription();
-      this->cancel_interval(gHomeStatTimerId);
+      cancel_interval(gHomeStatTimerId);
       break;
 
     case MakeStateTransition(device_state::ready, device_state::alert):

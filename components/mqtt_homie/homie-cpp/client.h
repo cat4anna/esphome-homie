@@ -54,7 +54,6 @@ class client : private mqtt_event_handler {
                            const std::string &payload) {
     if (snode.empty() || sproperty.empty())
       return;
-
     int64_t id = 0;
     bool is_array_node = false;
     auto node = dev->get_node(snode);
@@ -70,26 +69,27 @@ class client : private mqtt_event_handler {
       //     rnode.resize(pos);
       //   }
       // }
-
       // auto node = dev->get_node(rnode);
       // if (node == nullptr || node->is_array() != is_array_node)
-        return;
+      return;
     }
 
     auto prop = node->get_property(sproperty);
-    if (prop == nullptr)
+    if (prop == nullptr) {
       return;
-    if (!prop->is_settable())
+    }
+    if (!prop->is_settable()) {
       return;
+    }
 
-    if (is_array_node)
-      if (prop->get_value(id) != payload) {
-        prop->set_value(id, payload);
-      } else {
-        if (prop->get_value() != payload) {
-          prop->set_value(payload);
-        }
-      }
+    // if (is_array_node)
+    // if (prop->get_value(id) != payload) {
+    //   prop->set_value(id, payload);
+    // } else {
+    if (prop->get_value() != payload) {
+      prop->set_value(payload);
+    }
+    // }
   }
 
   void handle_broadcast(const std::string &level, const std::string &payload) {
@@ -97,39 +97,42 @@ class client : private mqtt_event_handler {
       handler->on_broadcast(level, payload);
   }
 
-  void publish_device_attribute(const std::string &attribute, const std::string &value,
+  void publish_device_attribute(const std::string &attribute, std::string value,
                                 bool wants_retained = true) const {
     std::string topic = base_topic + dev->get_id() + "/";
-    if (attribute.front() != '$')
+    if (attribute.front() != '$') {
       topic += '$';
+    }
     topic += attribute;
-    mqtt.publish(topic, value, qos, retained && wants_retained);
+    mqtt.publish(std::move(topic), std::move(value), qos, retained && wants_retained);
   }
 
-  void publish_node_attribute(const_node_ptr node, const std::string &attribute,
-                              const std::string &value, bool wants_retained = true) const {
+  void publish_node_attribute(const_node_ptr node, const std::string &attribute, std::string value,
+                              bool wants_retained = true) const {
     std::string topic = base_topic + dev->get_id() + "/" + node->get_id() + "/";
-    if (attribute.front() != '$')
+    if (attribute.front() != '$') {
       topic += '$';
+    }
     topic += attribute;
-    mqtt.publish(topic, value, qos, retained && wants_retained);
+    mqtt.publish(std::move(topic), std::move(value), qos, retained && wants_retained);
   }
 
   void publish_property_attribute(const_node_ptr node, const_property_ptr prop,
-                                  const std::string &attribute, const std::string &value,
+                                  const std::string &attribute, std::string value,
                                   bool wants_retained = true) const {
     std::string topic =
         base_topic + dev->get_id() + "/" + node->get_id() + "/" + prop->get_id() + "/";
-    if (attribute.front() != '$')
+    if (attribute.front() != '$') {
       topic += '$';
+    }
     topic += attribute;
-    mqtt.publish(topic, value, qos, retained && wants_retained);
+    mqtt.publish(std::move(topic), std::move(value), qos, retained && wants_retained);
   }
 
-  void publish_property_value(const_node_ptr node, const_property_ptr prop,
-                              const std::string &value, bool wants_retained = true) const {
+  void publish_property_value(const_node_ptr node, const_property_ptr prop, std::string value,
+                              bool wants_retained = true) const {
     std::string topic = base_topic + dev->get_id() + "/" + node->get_id() + "/" + prop->get_id();
-    mqtt.publish(topic, value, qos, retained && wants_retained);
+    mqtt.publish(std::move(topic), std::move(value), qos, retained && wants_retained);
   }
 
   void notify_property_changed_impl(const std::string &snode, const std::string &sproperty,
@@ -275,8 +278,7 @@ class client : private mqtt_event_handler {
         publish_property_attribute(node, property, "$format", property->get_format());
 
         if (!node->is_array()) {
-          auto val = property->get_value();
-          publish_property_value(node, property, val, property->is_retained());
+          publish_property_value(node, property, property->get_value(), property->is_retained());
         } else {
           // for (int64_t i = node->array_range().first; i <= node->array_range().second; i++) {
           //   auto val = property->get_value(i);

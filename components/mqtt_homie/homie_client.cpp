@@ -8,43 +8,56 @@
 #include "esphome/components/logger/logger.h"
 #endif
 
+#include <deque>
+
 #define TAG "homie:client"
 
 namespace esphome::mqtt_homie {
 
 class MqttProxy : public homie::mqtt_client {
  public:
-  MqttProxy(esphome::mqtt::MQTTClientComponent *client) : client(client) {
-    client->set_handler(&proxy);
+  MqttProxy(esphome::mqtt::MQTTClientComponent *client) : m_client(client) {
+    m_client->set_handler(&m_proxy);
   }
 
-  void set_event_handler(homie::mqtt_event_handler *evt) override { proxy.handler = evt; }
+  void set_event_handler(homie::mqtt_event_handler *evt) override { m_proxy.handler = evt; }
 
   void open(const std::string &will_topic, const std::string &will_payload, int will_qos,
             bool will_retain) override {}
-  void publish(const std::string &topic, const std::string &payload, int qos,
-               bool retain) override {
-    client->publish(esphome::mqtt::MQTTMessage{
-        .topic = topic,
-        .payload = payload,
+  void publish(std::string topic, std::string payload, int qos, bool retain) override {
+    m_outbound_queue.emplace_back(esphome::mqtt::MQTTMessage{
+        .topic = std::move(topic),
+        .payload = std::move(payload),
         .qos = static_cast<uint8_t>(qos),
         .retain = retain,
     });
   }
   void subscribe(const std::string &topic, int qos) override {
-    client->subscribe(
+    m_client->subscribe(
         topic,
         [this](const std::string &topic, const std::string &payload) {
-          if (proxy.handler)
-            proxy.handler->on_message(topic, payload);
+          if (m_proxy.handler)
+            m_proxy.handler->on_message(topic, payload);
         },
         qos);
   }
-  void unsubscribe(const std::string &topic) override { client->unsubscribe(topic); }
-  bool is_connected() const override { return client->is_connected(); }
+  void unsubscribe(const std::string &topic) override { m_client->unsubscribe(topic); }
+  bool is_connected() const override { return m_client->is_connected(); }
+
+  void check_outbound_queue() {
+    if (m_outbound_queue.empty()) {
+      return;
+    }
+
+    m_client->publish(m_outbound_queue.front());
+    m_outbound_queue.pop_front();
+    if (m_outbound_queue.empty()) {
+      m_outbound_queue.shrink_to_fit();
+    }
+  }
 
  private:
-  esphome::mqtt::MQTTClientComponent *client = nullptr;
+  esphome::mqtt::MQTTClientComponent *m_client = nullptr;
 
   class MqttToHomieProxy : public esphome::mqtt::MqttStateHandler {
    public:
@@ -66,15 +79,17 @@ class MqttProxy : public homie::mqtt_client {
         handler->on_offline();
     }
   };
-  MqttToHomieProxy proxy;
+  MqttToHomieProxy m_proxy;
+
+  std::deque<esphome::mqtt::MQTTMessage> m_outbound_queue;
 };
 
 HomieClient::HomieClient(mqtt::MQTTClientComponent *client) {
-  mqtt_proxy = std::make_unique<MqttProxy>(client);
+  m_mqtt_proxy = std::make_unique<MqttProxy>(client);
 }
 
 void HomieClient::start_homie(HomieDevice *device, std::string prefix, int qos, bool retained) {
-  if (homie_client)
+  if (m_homie_client)
     return;
 
   m_device = device;
@@ -82,8 +97,8 @@ void HomieClient::start_homie(HomieDevice *device, std::string prefix, int qos, 
   if (!prefix.empty() && prefix.back() != '/')
     prefix += "/";
 
-  homie_client = std::make_unique<homie::client>(*mqtt_proxy, device, prefix, qos, retained);
-  device->set_client(homie_client.get());
+  m_homie_client = std::make_unique<homie::client>(*m_mqtt_proxy, device, prefix, qos, retained);
+  device->set_client(m_homie_client.get());
 }
 
 void HomieClient::setup() {
@@ -96,5 +111,7 @@ void HomieClient::setup() {
       });
 #endif
 }
+
+void HomieClient::loop() { m_mqtt_proxy->check_outbound_queue(); }
 
 }  // namespace esphome::mqtt_homie

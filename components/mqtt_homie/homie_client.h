@@ -29,14 +29,15 @@ class HomieClient : public Component {
   void setup_logging(int level) { m_log_level = level; };
 
   void setup() override;
+  void loop() override;
 
   void start_homie(HomieDevice *device, std::string prefix, int qos, bool retained);
 
  protected:
   int m_log_level = ESPHOME_LOG_LEVEL_NONE;
   HomieDevice *m_device = nullptr;
-  std::unique_ptr<homie::client> homie_client;
-  std::unique_ptr<MqttProxy> mqtt_proxy;
+  std::unique_ptr<homie::client> m_homie_client;
+  std::unique_ptr<MqttProxy> m_mqtt_proxy;
 };
 
 }  // namespace esphome::mqtt_homie

@@ -45,7 +45,9 @@ template<class PropertyClass> class HomieNodeSingleProperty : public HomieNodeBa
 
  protected:
   const esphome::EntityBase *GetEntityBase() const override { return property.target; }
-  const esphome::EntityBase_DeviceClass *GetEntityBaseDeviceClass() const override { return property.target; }
+  const esphome::EntityBase_DeviceClass *GetEntityBaseDeviceClass() const override {
+    return property.target;
+  }
 
   PropertyClass property;
 };
@@ -82,6 +84,7 @@ using HomieNodeSensor = HomieNodeSingleProperty<HomieSensorProperty>;
 #ifdef USE_SWITCH
 class HomieSwitchProperty : public HomiePropertyBase {
  public:
+  static constexpr auto TAG = "homie:SwitchProperty";
   using TargetType = switch_::Switch;
   TargetType *target;
 
